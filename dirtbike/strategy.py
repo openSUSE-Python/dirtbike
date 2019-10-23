@@ -11,6 +11,26 @@ import importlib
 import subprocess
 import pkg_resources
 
+import distro
+import six
+
+if six.PY2:
+    FileNotFoundError = IOError
+
+def __get_id_like():
+    return distro.LinuxDistribution()._os_release_info['id_like'].lower()
+
+SUSE_LIKE = 'suse' in __get_id_like()
+FEDORA_LIKE = 'fedora' in __get_id_like()
+DEBIAN_LIKE = 'debian' in __get_id_like()
+
+if SUSE_LIKE or FEDORA_LIKE:
+    PKG_SEARCH = ['/usr/bin/rpm', '-qf']
+    PKG_LIST = ['/usr/bin/rpm', '-ql']
+elif DEBIAN_LIKE:
+    PKG_SEARCH = ['/usr/bin/dpkg', '-S']
+    PKG_LIST = ['/usr/bin/dpkg', '-L']
+
 
 def _abspathify(filenames, location):
     paths = []
@@ -103,7 +123,7 @@ class WheelStrategy(Strategy):
             # the system are available in RECORD, aka wheel metadata.
             files = self._metadata.get_metadata('RECORD').splitlines()
         # Python 3 - use FileNotFoundError
-        except IOError as error:
+        except FileNotFoundError as error:
             self._files = None
             # Let's find the path to an egg-info file and ask dpkg for the
             # file metadata.
@@ -133,15 +153,13 @@ class WheelStrategy(Strategy):
         return self._metadata.location
 
 
-class _DpkgBaseStrategy(object):
+class _PackageBaseStrategy(object):
     def _find_files(self, path_to_some_file, relative_to):
         stdout = subprocess.check_output(
-            ['/usr/bin/dpkg', '-S', path_to_some_file],
-            universal_newlines=True)
+            PKG_SEARCH + [path_to_some_file], universal_newlines=True)
         pkg_name, colon, path = stdout.partition(':')
         stdout = subprocess.check_output(
-            ['/usr/bin/dpkg', '-L', pkg_name],
-            universal_newlines=True)
+            PKG_LIST + [pkg_name], universal_newlines=True)
         # Now we have all the files from the Debian package.  However,
         # RECORD-style files lists are all relative to the site-packages
         # directory in which the package was installed.
@@ -155,7 +173,7 @@ class _DpkgBaseStrategy(object):
                 yield shortened_filename
 
 
-class DpkgEggStrategy(Strategy, _DpkgBaseStrategy):
+class PackageEggStrategy(Strategy, _PackageBaseStrategy):
     """Use Debian-specific strategy for finding a package's contents."""
 
     # It would be nice to be able to remove the Debian-specific code so that
@@ -167,7 +185,7 @@ class DpkgEggStrategy(Strategy, _DpkgBaseStrategy):
     # To be semver-esque, a version with the Debian-specific code
     # removed would presumably have a bumped "major" version number.
     def __init__(self, name):
-        super(DpkgEggStrategy, self).__init__(name)
+        super(PackageEggStrategy, self).__init__(name)
         try:
             self._metadata = pkg_resources.get_distribution(name)
         except pkg_resources.DistributionNotFound:
@@ -200,11 +218,11 @@ class DpkgEggStrategy(Strategy, _DpkgBaseStrategy):
         return self._metadata.location
 
 
-class DpkgImportlibStrategy(Strategy, _DpkgBaseStrategy):
+class PackageImportlibStrategy(Strategy, _PackageBaseStrategy):
     """Use dpkg based on Python 3's importlib."""
 
     def __init__(self, name):
-        super(DpkgImportlibStrategy, self).__init__(name)
+        super(PackageImportlibStrategy, self).__init__(name)
         spec = self._spec = None
         try:
             spec = importlib.util.find_spec(name)
@@ -238,11 +256,11 @@ class DpkgImportlibStrategy(Strategy, _DpkgBaseStrategy):
         return self._files
 
 
-class DpkgImpStrategy(Strategy, _DpkgBaseStrategy):
+class PackageImpStrategy(Strategy, _PackageBaseStrategy):
     """Use dpkg based on Python 2's imp API."""
 
     def __init__(self, name):
-        super(DpkgImpStrategy, self).__init__(name)
+        super(PackageImpStrategy, self).__init__(name)
         self._location = None
         try:
             filename, pathname, description = imp.find_module(name)
@@ -274,11 +292,11 @@ class DpkgImpStrategy(Strategy, _DpkgBaseStrategy):
         return self._files
 
 
-class DpkgImportCalloutStrategy(Strategy, _DpkgBaseStrategy):
+class PackageImportCalloutStrategy(Strategy, _PackageBaseStrategy):
     """ Use dpkg, but find the file by shelling out to some other Python."""
 
     def __init__(self, name):
-        super(DpkgImportCalloutStrategy, self).__init__(name)
+        super(PackageImportCalloutStrategy, self).__init__(name)
         self._location = None
         other_python = '/usr/bin/python{}'.format(
             2 if sys.version_info.major == 3 else 3)

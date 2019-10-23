@@ -20,17 +20,17 @@ except ImportError:
     from mock import patch
 
 from .strategy import (
-    DpkgEggStrategy, DpkgImpStrategy, DpkgImportCalloutStrategy,
-    DpkgImportlibStrategy, WheelStrategy)
+    PackageEggStrategy, PackageImpStrategy, PackageImportCalloutStrategy,
+    PackageImportlibStrategy, WheelStrategy)
 
 
 STRATEGIES = (
     # The order is significant here, so DO NOT sort alphabetically.
     WheelStrategy,
-    DpkgEggStrategy,
-    DpkgImportlibStrategy,
-    DpkgImpStrategy,
-    DpkgImportCalloutStrategy,
+    PackageEggStrategy,
+    PackageImportlibStrategy,
+    PackageImpStrategy,
+    PackageImportCalloutStrategy,
     )
 
 

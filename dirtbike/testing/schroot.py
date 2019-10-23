@@ -7,6 +7,8 @@ class Session:
     def __init__(self):
         self.id = None
 
+    # FIXME can I use fakechroot instead of chroot? ???
+
     def call(self, command, **kws):
         assert self.id is not None, 'No schroot session'
         if isinstance(command, str):
@@ -34,10 +36,11 @@ class Session:
         # overridden.  If not, figure out some defaults.
         arch = os.environ.get('CH_ARCH')
         distro = os.environ.get('CH_DISTRO')
+        raise NotImplementedError('Needs complete rewrite!!!')
         if arch is None:
-            arch = output('dpkg-architecture -q DEB_HOST_ARCH').strip()
+            arch = output('dpkg-architecture -q DEB_HOST_ARCH').strip()  # e.g. amd64
         if distro is None:
-            distro = output('lsb_release -cs').strip()
+            distro = output('lsb_release -cs').strip()  # feisty, xenial, etc.
         chroot_name = 'dirtbike-{}-{}'.format(distro, arch)
         self.id = output(
             ['schroot', '-u', 'root', '-c', chroot_name, '--begin-session']

@@ -13,6 +13,8 @@ setup(name='dirtbike',
       packages=['dirtbike'],
       install_requires=[
           'wheel',
+          'six',
+          'distro',
       ],
       entry_points={
           'console_scripts': [
